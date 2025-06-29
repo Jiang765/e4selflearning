@@ -435,7 +435,7 @@ def check_faulty_folder(dirpath: str, files2dismiss: t.List):
 def recast_collection(args, collection: str, path: str):
     dirs = []
     output_dir_collection = os.path.join(
-        args.path2unlabelled_data, "recast", collection
+        "data/raw_data/unlabelled_data/recast/", collection
     )
     root_dir = os.path.join(args.path2unlabelled_data, path)
     files2dismiss = []
@@ -483,7 +483,7 @@ def recast_wrapper(args, output_dir, collection, path):
 
 
 def recast_unlabelled_data(args):
-    output_dir = os.path.join(args.path2unlabelled_data, "recast")
+    output_dir = os.path.join("data/raw_data/unlabelled_data/recast/")
     if os.path.isdir(output_dir):
         if args.overwrite:
             shutil.rmtree(output_dir)

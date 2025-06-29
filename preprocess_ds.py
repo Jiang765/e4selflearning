@@ -54,7 +54,7 @@ def preprocess_session(
     else:
         session_data["labels"] = session_label
         session_output_dir = os.path.join(args.output_dir, session_id).replace(
-            os.path.join(args.path2unlabelled_data, "recast/"), ""
+            "data/raw_data/unlabelled_data/recast/", ""
         )
         if not os.path.isdir(session_output_dir):
             os.makedirs(session_output_dir)
@@ -139,7 +139,7 @@ def main(args):
         # )
         session_info = results[i]
         session_id = session_id.replace(
-            os.path.join(args.path2unlabelled_data, "recast/"), ""
+            "data/raw_data/unlabelled_data/recast/", ""
         )
         if session_info is None:
             invalid_sessions.append(session_id)
