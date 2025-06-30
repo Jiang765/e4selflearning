@@ -58,33 +58,40 @@ def load_channel(recording_dir: str, channel: str):
       data: np.ndarray, the raw recording data
     """
     assert channel in CSV_CHANNELS, f"unknown channel {channel}"
+    filepath = os.path.join(recording_dir, f"{channel}.csv")
     try:
         if channel == "IBI":
-            raw_data = pd.read_csv(
-                os.path.join(recording_dir, f"{channel}.csv"),
-                delimiter=",",
-            )
+            raw_data = pd.read_csv(filepath, delimiter=",")
         else:
-            raw_data = pd.read_csv(
-                os.path.join(recording_dir, f"{channel}.csv"),
-                delimiter=",",
-                header=None,
-            ).values
+            raw_data = pd.read_csv(filepath, delimiter=",", header=None).values
+
+        unix_t0, sampling_rate, data = None, -1.0, None
+        if channel == "IBI":
+            unix_t0 = np.float64(raw_data.columns[0])
+            data = raw_data.values
+        else:
+            unix_t0 = raw_data[0] if raw_data.ndim == 1 else raw_data[0, 0]
+            sampling_rate = raw_data[1] if raw_data.ndim == 1 else raw_data[1, 0]
+            data = raw_data[2:]
+        assert sampling_rate.is_integer(), "sampling rate must be an integer"
+        data = np.squeeze(data)
+        return int(unix_t0), int(sampling_rate), data.astype(np.float32)
+
     except pd.errors.EmptyDataError:
+        # If the file is empty, print a warning and skip it
+        print(f"--- [WARNING] File is empty. Skipping. ---\n    File: {filepath}\n-------------------------------------------")
         return np.nan, np.nan, np.nan
-
-    unix_t0, sampling_rate, data = None, -1.0, None
-    if channel == "IBI":
-        unix_t0 = np.float64(raw_data.columns[0])
-        data = raw_data.values
-    else:
-        unix_t0 = raw_data[0] if raw_data.ndim == 1 else raw_data[0, 0]
-        sampling_rate = raw_data[1] if raw_data.ndim == 1 else raw_data[1, 0]
-        data = raw_data[2:]
-    assert sampling_rate.is_integer(), "sampling rate must be an integer"
-    data = np.squeeze(data)
-    return int(unix_t0), int(sampling_rate), data.astype(np.float32)
-
+        
+    except (ValueError, AttributeError, IndexError) as e:
+        # Catch the ValueError we encountered before, plus other possible format errors
+        # like an IndexError from a file with too few lines, or an AttributeError from wrong data types.
+        print(f"--- [ERROR] A format or data conversion error occurred while processing the file. ---")
+        print(f"    File: {filepath}")
+        print(f"    Error Message: {e}")
+        print(f"    This file's content is likely corrupted or not in the standard format. Skipping file.")
+        print(f"--------------------------------------------------------------------------------------")
+        # Return NaN values to let the main program know this file failed, but without crashing.
+        return np.nan, np.nan, np.nan
 
 def preprocess_channel(recording_dir: str, channel: str):
     """
