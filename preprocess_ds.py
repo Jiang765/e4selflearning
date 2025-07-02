@@ -6,9 +6,8 @@ from shutil import rmtree
 import pandas as pd
 from tqdm.contrib import concurrent
 
+from dummy_clinical_info import get_dummy_clinical_info
 from timebase.data import preprocessing
-from timebase.data import spreadsheet
-from timebase.data import utils
 from timebase.data.static import *
 from timebase.utils import h5
 from timebase.utils.utils import set_random_seed
@@ -21,7 +20,7 @@ def get_session_label(clinical_info: pd.DataFrame, session_id: str):
     else:
         values = session.values[0]
         values[LABEL_COLS.index("Session_Code")] = float(
-            os.path.basename(values[LABEL_COLS.index("Session_Code")])
+            os.path.basename(values[LABEL_COLS.index("Session_Code")]).split("_")[0][1:]
         )
         return values.astype(np.float32)
 
@@ -30,9 +29,10 @@ def preprocess_session(
     args, clinical_info: pd.DataFrame, session_id: str, labelled: bool
 ):
     if labelled:
-        recording_dir = utils.unzip_session(
-            args.path2labelled_data, session_id=os.path.basename(session_id)
-        )
+        # recording_dir = utils.unzip_session(
+        #     args.path2labelled_data, session_id=os.path.basename(session_id)
+        # )
+        recording_dir = session_id
         session_label = get_session_label(clinical_info, session_id=session_id)
         if session_label is None:
             raise ValueError(f"Cannot find session {session_id} in spreadsheet.")
@@ -54,7 +54,7 @@ def preprocess_session(
     else:
         session_data["labels"] = session_label
         session_output_dir = os.path.join(args.output_dir, session_id).replace(
-            "data/raw_data/unlabelled_data/recast/", ""
+            os.path.join(args.path2unlabelled_data, "recast/"), ""
         )
         if not os.path.isdir(session_output_dir):
             os.makedirs(session_output_dir)
@@ -106,12 +106,13 @@ def main(args):
         "unlabelled": {0.0: 0, 1.0: 0, 2.0: 0},
     }
     if not args.e4selflearning:
-        clinical_info = spreadsheet.read(args)
+        # clinical_info = spreadsheet.read(args)
+        clinical_info = get_dummy_clinical_info()
         args.session_codes = list(clinical_info["Session_Code"])
         clinical_info.replace({"status": DICT_STATE}, inplace=True)
         clinical_info.replace({"time": DICT_TIME}, inplace=True)
         for session in args.session_codes:
-            all_sessions[session] = False
+            all_sessions[session] = True
         recording_time["labelled"] = {0.0: 0, 1.0: 0, 2.0: 0}
         assert os.sep.join(args.path2unlabelled_data.split(os.sep)[:-1]) == os.sep.join(
             args.path2labelled_data.split(os.sep)[:-1]
@@ -139,7 +140,7 @@ def main(args):
         # )
         session_info = results[i]
         session_id = session_id.replace(
-            "data/raw_data/unlabelled_data/recast/", ""
+            os.path.join(args.path2unlabelled_data, "recast/"), ""
         )
         if session_info is None:
             invalid_sessions.append(session_id)
