@@ -33,3 +33,4 @@ lightning
 torch-tb-profiler
 scikit-optimize
 peakutils
+torchvision
