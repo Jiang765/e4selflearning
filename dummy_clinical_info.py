@@ -28,7 +28,7 @@ def get_dummy_clinical_info():
         'time': 'T0',
         'YMRS_SUM': np.random.randint(8, 25, len(case_subject_ids)).astype(float),
         'HDRS_SUM': np.random.randint(8, 25, len(case_subject_ids)).astype(float),
-        'Session_Code': [f'data/raw_data/WESAD/S{sid}/S{sid}_E4_Data' for sid in case_subject_ids],
+        'Session_Code': [f'data/raw_data/barcelona/S{sid}/S{sid}_E4_Data' for sid in case_subject_ids],
     }
 
     # --- Create data for the 7 "Control" subjects ---
@@ -40,7 +40,7 @@ def get_dummy_clinical_info():
         'time': 'T0',
         'YMRS_SUM': np.random.randint(0, 7, len(control_subject_ids)).astype(float),
         'HDRS_SUM': np.random.randint(0, 7, len(control_subject_ids)).astype(float),
-        'Session_Code': [f'data/raw_data/WESAD/S{sid}/S{sid}_E4_Data' for sid in control_subject_ids],
+        'Session_Code': [f'data/raw_data/barcelona/S{sid}/S{sid}_E4_Data' for sid in control_subject_ids],
     }
 
     # Combine into DataFrames

@@ -228,8 +228,13 @@ class ImputationDataset(Dataset):
         return int(os.path.basename(os.path.dirname(filename)))
 
     @staticmethod
-    def get_collection_name(filename: str, dataset_path: str):
-        return filename.replace(f"{dataset_path}/", "").split("/")[0]
+    def get_collection_name(filename: str):
+        for collection_name in COLLECTIONS_DICT.keys():
+            # Check if the collection name exists as a directory in the path
+            if f"/{collection_name}/" in filename:
+                return collection_name
+        # Return None or raise an error if no collection is found
+        raise KeyError(f"No valid collection name found in path: {filename}")
 
     def create_noise(self, mask):
         if self.scaling_mode in (2, 3):
@@ -266,9 +271,7 @@ class ImputationDataset(Dataset):
             "corrupted": corrupted_data,
             "mask": mask,
             "collection": COLLECTIONS_DICT[
-                self.get_collection_name(
-                    filename=filename, dataset_path=self.dataset_path
-                )
+                self.get_collection_name(filename=filename)
             ],
         }
 
@@ -314,8 +317,13 @@ class TransformationDataset(Dataset):
         return int(os.path.basename(os.path.dirname(filename)))
 
     @staticmethod
-    def get_collection_name(filename: str, dataset_path: str):
-        return filename.replace(f"{dataset_path}/", "").split("/")[0]
+    def get_collection_name(filename: str):
+        for collection_name in COLLECTIONS_DICT.keys():
+            # Check if the collection name exists as a directory in the path
+            if f"/{collection_name}/" in filename:
+                return collection_name
+        # Return None or raise an error if no collection is found
+        raise KeyError(f"No valid collection name found in path: {filename}")
 
     def sample_transformations(self):
         choices = np.arange(len(self.TRANSFORMATION_FUNC_DICT))
@@ -346,9 +354,7 @@ class TransformationDataset(Dataset):
             "transformed_data": transformed_data,
             "transformation": transformations.astype(np.int32),
             "collection": COLLECTIONS_DICT[
-                self.get_collection_name(
-                    filename=filename, dataset_path=self.dataset_path
-                )
+                self.get_collection_name(filename=filename)
             ],
         }
         return sample
@@ -473,8 +479,13 @@ class ContrastiveDataset(Dataset):
         return int(os.path.basename(os.path.dirname(filename)))
 
     @staticmethod
-    def get_collection_name(filename: str, dataset_path: str):
-        return filename.replace(f"{dataset_path}/", "").split("/")[0]
+    def get_collection_name(filename: str):
+        for collection_name in COLLECTIONS_DICT.keys():
+            # Check if the collection name exists as a directory in the path
+            if f"/{collection_name}/" in filename:
+                return collection_name
+        # Return None or raise an error if no collection is found
+        raise KeyError(f"No valid collection name found in path: {filename}")
 
     def get_another_view(self, idx):
         """
@@ -508,9 +519,7 @@ class ContrastiveDataset(Dataset):
             "x1": data,
             "x2": another_view,
             "collection": COLLECTIONS_DICT[
-                self.get_collection_name(
-                    filename=filename, dataset_path=self.dataset_path
-                )
+                self.get_collection_name(filename=filename)
             ],
         }
         return sample
@@ -548,8 +557,13 @@ class DiagnosticsDataset(Dataset):
         return len(self.filenames)
 
     @staticmethod
-    def get_collection_name(filename: str, dataset_path: str):
-        return filename.replace(f"{dataset_path}/", "").split("/")[0]
+    def get_collection_name(filename: str):
+        for collection_name in COLLECTIONS_DICT.keys():
+            # Check if the collection name exists as a directory in the path
+            if f"/{collection_name}/" in filename:
+                return collection_name
+        # Return None or raise an error if no collection is found
+        raise KeyError(f"No valid collection name found in path: {filename}")
 
     def __getitem__(self, idx: t.Union[int, torch.Tensor]) -> t.Dict[str, t.Any]:
         filename = self.filenames[idx]
@@ -573,9 +587,7 @@ class DiagnosticsDataset(Dataset):
             "label": label,
             "target": target,
             "collection": COLLECTIONS_DICT[
-                self.get_collection_name(
-                    filename=filename, dataset_path=self.dataset_path
-                )
+                self.get_collection_name(filename=filename)
             ],
             "sleep_status": sleep_status,
         }

@@ -221,7 +221,7 @@ def compute_statistics(
             selected_collections = "_".join(args.filter_collections)
             cache = os.path.join(
                 args.dataset,
-                f"stats_{selected_collections}_split_mode_{args.split_mode}_ssl_e4selflearning",
+                f"stats_{selected_collections}_split_mode_{args.split_mode}_ssl",
             )
         elif args.unlabelled_data_resampling_percentage < 1:
             cache = os.path.join(
@@ -232,7 +232,7 @@ def compute_statistics(
         else:
             cache = os.path.join(
                 args.dataset,
-                f"stats_split_mode_{args.split_mode}_ssl_e4selflearning",
+                f"stats_split_mode_{args.split_mode}_ssl",
             )
             if args.exclude_anomalies:
                 cache = cache + "_anomaly_detection"
@@ -267,7 +267,7 @@ def compute_statistics(
             }
             utils.stats_in_tranches(
                 args,
-                files2read=data["x_train"] if "x_train" in data else data["x_pre_train"],
+                files2read=data["x_train"],
                 channels=channels,
                 stats=stats,
             )
@@ -889,12 +889,12 @@ def get_training_datasets(
     train_ds = DataLoader(
         ClassificationDataset(
             args,
-            filenames=data["x_train"] if "x_train" in data else data["x_pre_train"],
-            labels=data["y_train"] if "y_train" in data else data["y_pre_train"],
-            rec_ids=data["train_recording_id"] if "train_recording_id" in data else data["pre_train_recording_id"],
+            filenames=data["x_train"],
+            labels=data["y_train"],
+            rec_ids=data["train_recording_id"],
             stats=args.ds_info["stats"],
             recording_id_str_to_num=recording_id_str_to_num,
-            subject_ids=get_subject_ids(args, sub_id=data["y_train"]["Sub_ID"] if "y_train" in data else data["y_pre_train"]["Sub_ID"]),
+            subject_ids=get_subject_ids(args, sub_id=data["y_train"]["Sub_ID"]),
         ),
         shuffle=True,
         **dataloader_kwargs,
@@ -902,12 +902,12 @@ def get_training_datasets(
     val_ds = DataLoader(
         ClassificationDataset(
             args,
-            filenames=data["x_val"] if "x_val" in data else data["x_pre_train"],
-            labels=data["y_val"] if "y_val" in data else data["y_pre_train"],
-            rec_ids=data["val_recording_id"] if "val_recording_id" in data else data["pre_train_recording_id"],
+            filenames=data["x_val"],
+            labels=data["y_val"],
+            rec_ids=data["val_recording_id"],
             stats=args.ds_info["stats"],
             recording_id_str_to_num=recording_id_str_to_num,
-            subject_ids=get_subject_ids(args, sub_id=data["y_val"]["Sub_ID"] if "y_val" in data else data["y_pre_train"]["Sub_ID"]),
+            subject_ids=get_subject_ids(args, sub_id=data["y_val"]["Sub_ID"]),
         ),
         shuffle=False,
         **dataloader_kwargs,
@@ -915,12 +915,12 @@ def get_training_datasets(
     test_ds = DataLoader(
         ClassificationDataset(
             args,
-            filenames=data["x_test"] if "x_test" in data else data["x_pre_train"],
-            labels=data["y_test"] if "y_test" in data else data["y_pre_train"],
-            rec_ids=data["test_recording_id"] if "test_recording_id" in data else data["pre_train_recording_id"],
+            filenames=data["x_test"],
+            labels=data["y_test"],
+            rec_ids=data["test_recording_id"],
             stats=args.ds_info["stats"],
             recording_id_str_to_num=recording_id_str_to_num,
-            subject_ids=get_subject_ids(args, sub_id=data["y_test"]["Sub_ID"] if "y_test" in data else data["y_pre_train"]["Sub_ID"]),
+            subject_ids=get_subject_ids(args, sub_id=data["y_test"]["Sub_ID"]),
         ),
         shuffle=False,
         **dataloader_kwargs,
