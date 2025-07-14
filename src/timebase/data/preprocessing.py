@@ -215,6 +215,54 @@ def preprocess_dir(args, recording_dir: str, labelled: bool):
     Returns:
       features: np.ndarray, preprocessed channels in SAVE_CHANNELS format
     """
+    is_emotibit = "emotibit" in recording_dir
+
+    if is_emotibit:
+        # New logic for EmotiBit
+        durations, channel_data, sampling_rates, unix_t0s = [], {}, {}, {}
+
+        # Load all specified EmotiBit channels
+        for channel in EMOTIBIT_CHANNELS:
+            data, sampling_rate, unix_t0 = preprocess_channel_emotibit(
+                recording_dir=recording_dir, channel=channel
+            )
+
+            # Skip if the file was empty or corrupted
+            if isinstance(data, float) and np.isnan(data):
+                continue
+
+            channel_data[channel] = data
+            sampling_rates[channel] = sampling_rate
+            unix_t0s[channel] = unix_t0
+            durations.append(len(data) // sampling_rate)
+
+        # Exit if no valid channels were loaded
+        if not durations:
+            print(f"--- [WARNING] No valid channels found in the EmotiBit directory: {recording_dir}. Skipping directory. ---")
+            return {}, {}, True  # Return empty dicts and short_section=True
+
+        session_info = {
+            "channel_names": utils.get_channel_names(channel_data),
+            "sampling_rates": sampling_rates,
+            "unix_t0": unix_t0s,
+            "mask_names": [],
+            "labelled": labelled,
+        }
+
+        # Crop all channels to the shortest duration
+        min_duration = min(durations)
+        short_section = min_duration < (args.minimum_recorded_time * 60)
+
+        if short_section:
+            # Discard the session if it's shorter than the specified minimum
+            return channel_data, session_info, short_section
+        else:
+            for channel, recording in channel_data.items():
+                # Crop the data array to the minimum duration
+                channel_data[channel] = recording[: min_duration * sampling_rates[channel]]
+
+            return channel_data, session_info, short_section
+
     # print(f"processing {session_id} ")
     durations, channel_data, sampling_rates, unix_t0s = [], {}, {}, {}
     # load and preprocess all channels except IBI
@@ -263,22 +311,22 @@ def preprocess_dir(args, recording_dir: str, labelled: bool):
         #     eda=channel_data["EDA"], session_info=session_info
         # )
 
-        # no-wear = 0, wear = 1
-        # no_wear_mask is sampled at EDA frequency (4Hz)
-        no_wear_detection(
-            args,
-            channel_data=channel_data,
-            t0=unix_t0s["HR"],
-            session_info=session_info,
-        )
-        # wake = 0, sleep = 1, can't tell = 2
-        # sleep_wake_mask is sampled at ACC frequency (32Hz)
-        sleep_wake_detection(
-            args,
-            channel_data=channel_data,
-            t0=unix_t0s["HR"],
-            session_info=session_info,
-        )
+        # # no-wear = 0, wear = 1
+        # # no_wear_mask is sampled at EDA frequency (4Hz)
+        # no_wear_detection(
+        #     args,
+        #     channel_data=channel_data,
+        #     t0=unix_t0s["HR"],
+        #     session_info=session_info,
+        # )
+        # # wake = 0, sleep = 1, can't tell = 2
+        # # sleep_wake_mask is sampled at ACC frequency (32Hz)
+        # sleep_wake_detection(
+        #     args,
+        #     channel_data=channel_data,
+        #     t0=unix_t0s["HR"],
+        #     session_info=session_info,
+        # )
 
         split_acceleration(channel_data=channel_data, sampling_rates=sampling_rates)
 
@@ -445,6 +493,49 @@ def recast_collection(args, collection: str, path: str):
         "data/raw_data/unlabelled_data/recast/", collection
     )
     root_dir = os.path.join(args.path2unlabelled_data, path)
+
+    if collection == "emotibit":
+        # tqdm.write(f">>> Running recast for EmotiBit collection...")
+
+        # Automatically create a source-to-target file mapping based on the sample rate dictionary.
+        # Ignore signals with a sample rate of -1 (e.g., BI, HR, SA, SR).
+        source_to_target_map = {
+            tag: f"{tag}.csv"
+            for tag, rate in EMOTIBIT_NOMINAL_SAMPLE_RATES.items()
+            if rate != -1
+        }
+
+        for dirpath, dirnames, _ in os.walk(root_dir):
+            # EmotiBit data is typically in a specific subfolder.
+            subfolder_name = "separated by signal with EmotiBitDataParserApp"
+            if subfolder_name in dirnames:
+                
+                session_dir = dirpath
+                source_data_dir = os.path.join(session_dir, subfolder_name)
+                
+                relative_path = os.path.relpath(session_dir, root_dir)
+                output_dir_session = os.path.join(output_dir_collection, relative_path)
+                os.makedirs(output_dir_session, exist_ok=True)
+                dirs.append(output_dir_session)
+                
+                # tqdm.write(f"Processing session: {os.path.basename(session_dir)}")
+
+                # The file prefix is based on the session directory name.
+                prefix = os.path.basename(session_dir)
+
+                # Iterate through the dynamically generated map to process all matching files.
+                for source_tag, target_filename in source_to_target_map.items():
+                    source_filename = f"{prefix}_{source_tag}.csv"
+                    input_path = os.path.join(source_data_dir, source_filename)
+
+                    if os.path.exists(input_path):
+                        output_path = os.path.join(output_dir_session, target_filename)
+                        # Call the reformatting function.
+                        reformat_csv_emotibit(input_path, output_path)
+
+        # tqdm.write(f">>> Complete recast for EmotiBit collection")
+        return list(set(dirs))
+
     files2dismiss = []
     for dirpath, dirnames, filenames in os.walk(root_dir):
         for filename in filenames:
@@ -527,3 +618,131 @@ def recast_unlabelled_data(args):
             dirs_collector.extend(dirs)
 
     return dirs_collector
+
+
+def reformat_csv_emotibit(filename: str, output_file: str):
+    """
+    Converts a single EmotiBit CSV file to the project's required standard format.
+
+    The standard format is a single-column CSV file:
+    - Row 1: The initial LocalTimestamp (t0).
+    - Row 2: The signal's sampling rate in Hz.
+    - Row 3 and onwards: The continuous signal data points.
+
+    Args:
+        filename (str): The path to the input raw EmotiBit CSV file.
+        output_file (str): The path for the output standardized CSV file.
+    """
+    try:
+        # 1. Read the raw CSV file.
+        df_raw = pd.read_csv(filename)
+
+        # If the file is empty or has too few rows, skip it.
+        if len(df_raw) < 2:
+            print(f"Warning: File '{os.path.basename(filename)}' is too short or empty. Skipping.")
+            return
+
+        # 2. Extract key information.
+        # Get the initial timestamp from the first row.
+        t0 = df_raw['LocalTimestamp'].iloc[0]
+        # Get the signal type from the 'TypeTag' column of the first row;
+        # this is also used as the data column's name.
+        data_col_name = df_raw['TypeTag'].iloc[0]
+
+        # Confirm that the data column actually exists.
+        if data_col_name not in df_raw.columns:
+            print(f"Error: Data column '{data_col_name}' not found in file '{filename}'.")
+            return
+
+        # 3. Determine the sampling rate.
+        # First, try to get the nominal sample rate from the static dictionary.
+        sampling_rate = EMOTIBIT_NOMINAL_SAMPLE_RATES.get(data_col_name)
+
+        # If it's not in the dictionary or is marked as -1, calculate it dynamically.
+        if sampling_rate is None or sampling_rate == -1:
+            num_samples = len(df_raw)
+            # Calculate the total duration.
+            time_delta = df_raw['LocalTimestamp'].iloc[-1] - df_raw['LocalTimestamp'].iloc[0]
+            
+            if time_delta > 0:
+                # Sample Rate = (Number of Samples - 1) / Total Duration
+                calculated_rate = (num_samples - 1) / time_delta
+                sampling_rate = int(round(calculated_rate))
+                print(f"Info: Calculated sampling rate for {data_col_name}: {sampling_rate} Hz")
+            else:
+                # If the time delta is zero, we can't calculate a rate, so default to 1.
+                sampling_rate = 1
+
+        # 4. Extract the signal data.
+        data_values = df_raw[data_col_name]
+
+        # 5. Assemble the final single-column list.
+        final_values = [t0, sampling_rate]
+        final_values.extend(data_values.tolist())
+
+        # 6. Create the final DataFrame and save it.
+        df_standard = pd.DataFrame(final_values)
+
+        # Save to CSV without an index or header.
+        df_standard.to_csv(output_file, index=False, header=False)
+
+    except (pd.errors.EmptyDataError, IndexError):
+        print(f"Warning: File '{filename}' is empty or has incorrect format. Skipping.")
+    except FileNotFoundError:
+        print(f"Error: File not found at '{filename}'. Skipping.")
+    except Exception as e:
+        print(f"An unexpected error occurred while processing '{filename}': {e}")
+
+
+def load_channel_emotibit(recording_dir: str, channel: str):
+    """
+    Load pre-reformatted EmotiBit channel CSV data from a file.
+    The format is a single-column CSV:
+    - Row 1: Initial Unix timestamp (t0)
+    - Row 2: Signal's sampling rate (Hz)
+    - Row 3 and onwards: Continuous signal data points
+    """
+    filepath = os.path.join(recording_dir, f"{channel}.csv")
+    try:
+        # Data is a single column: t0, sampling_rate, data...
+        raw_data = pd.read_csv(filepath, header=None).values
+
+        if raw_data.shape[0] < 3:  # At least t0, rate, and one data point are needed
+            raise ValueError("File has insufficient data rows.")
+
+        unix_t0 = raw_data[0, 0]
+        sampling_rate = raw_data[1, 0]
+        data = raw_data[2:]
+
+        # Basic validation
+        assert np.issubdtype(type(unix_t0), np.number), "t0 must be a number."
+        assert np.issubdtype(type(sampling_rate), np.number) and sampling_rate > 0, "Sampling rate must be a positive number."
+
+        data = np.squeeze(data)
+        return int(unix_t0), int(sampling_rate), data.astype(np.float32)
+
+    except (pd.errors.EmptyDataError, FileNotFoundError):
+        print(f"--- [WARNING] File not found or is empty. Skipping. ---\n    File: {filepath}\n-------------------------------------------")
+        return np.nan, np.nan, np.nan
+
+    except (ValueError, AttributeError, IndexError, AssertionError) as e:
+        print(f"--- [ERROR] A format or data conversion error occurred while processing the EmotiBit file. ---")
+        print(f"    File: {filepath}")
+        print(f"    Error Message: {e}")
+        print(f"    Skipping this file.")
+        print(f"--------------------------------------------------------------------------------------")
+        return np.nan, np.nan, np.nan
+
+
+def preprocess_channel_emotibit(recording_dir: str, channel: str):
+    """Load an EmotiBit channel and perform basic preprocessing."""
+    assert channel in EMOTIBIT_CHANNELS, f"Unknown EmotiBit channel: {channel}"
+
+    unix_t0, sampling_rate, data = load_channel_emotibit(
+        recording_dir=recording_dir, channel=channel
+    )
+
+    # No specific preprocessing like scaling or filtering is needed for now.
+    # The HR_OFFSET logic from the original function is specific to Empatica E4 and is not applicable here.
+
+    return data, sampling_rate, unix_t0

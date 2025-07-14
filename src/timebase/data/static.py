@@ -7,8 +7,9 @@ import numpy as np
 FILE_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 
 HR_OFFSET = 10  # HR data record 10s after the t0
-# channel names of the csv recorded data
-CSV_CHANNELS = ["ACC", "BVP", "EDA", "HR", "TEMP", "IBI"]
+# channel names of the csv recorded data 
+# CSV_CHANNELS = ["ACC", "BVP", "EDA", "HR", "TEMP", "IBI"]
+CSV_CHANNELS = ["ACC", "BVP", "EDA", "TEMP"]
 # dictionary of channel:sampling frequency -> key: value pairs
 CHANNELS_FREQ = {
     "BVP": 64,
@@ -19,6 +20,28 @@ CHANNELS_FREQ = {
     "ACC_y": 32,
     "ACC_z": 32,
 }
+
+# Sample rate dictionary
+EMOTIBIT_NOMINAL_SAMPLE_RATES = {
+    # Accelerometer
+    'AX': 25, 'AY': 25, 'AZ': 25,
+    # Gyroscope
+    'GX': 25, 'GY': 25, 'GZ': 25,
+    # Magnetometer
+    'MX': 25, 'MY': 25, 'MZ': 25,
+    # Electrodermal Activity
+    'EA': 15, 'EL': 15,
+    # Skin Conductance Response Frequency
+    'SF': 3,
+    # Temperature Sensors (7.5Hz is rounded to 8)
+    'T1': 8, 'TH': 8,
+    # PPG (Photoplethysmogram)
+    'PI': 25, 'PR': 25, 'PG': 25,
+    # For variable-rate or event-driven signals, set to -1 to trigger calculation.
+    'BI': -1, 'HR': -1, 'SA': -1, 'SR': -1, 
+}
+
+EMOTIBIT_CHANNELS = ["AX", "AY", "AZ", "EA", "PI", "PR", "PG", "T1"]
 
 # maximum values of each individual symptom in YMRS and HDRS
 ITEM_MAX = {
@@ -233,6 +256,7 @@ UNLABELLED_DATA_PATHS = {
     "weee": "WEEE/dataset",
     "wesad": "WESAD",
     "wesd": "WESD/Data",
+    "emotibit": "EmotiBit",
 }
 
 # Second column of IBI.csv file has two IBI entries

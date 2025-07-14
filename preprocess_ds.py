@@ -12,6 +12,7 @@ from timebase.data.static import *
 from timebase.utils import h5
 from timebase.utils.utils import set_random_seed
 
+import warnings
 
 def get_session_label(clinical_info: pd.DataFrame, session_id: str):
     session = clinical_info[clinical_info.Session_Code == session_id]
@@ -102,18 +103,21 @@ def main(args):
             len(unlabelled_sessions) * [False],
         )
     )
-    recording_time = {
-        "unlabelled": {0.0: 0, 1.0: 0, 2.0: 0},
-    }
+    # recording_time = {
+    #     "unlabelled": {0.0: 0, 1.0: 0, 2.0: 0}, # 0=Wake, 1=Sleep, 2=Unknown
+    # }
     if not args.e4selflearning:
         # clinical_info = spreadsheet.read(args)
         clinical_info = get_dummy_clinical_info()
         args.session_codes = list(clinical_info["Session_Code"])
-        clinical_info.replace({"status": DICT_STATE}, inplace=True)
-        clinical_info.replace({"time": DICT_TIME}, inplace=True)
+        # Use a context manager to suppress warnings only for this block
+        with warnings.catch_warnings():
+            warnings.simplefilter("ignore", category=FutureWarning)
+            clinical_info.replace({"status": DICT_STATE}, inplace=True)
+            clinical_info.replace({"time": DICT_TIME}, inplace=True)
         for session in args.session_codes:
             all_sessions[session] = True
-        recording_time["labelled"] = {0.0: 0, 1.0: 0, 2.0: 0}
+        # recording_time["labelled"] = {0.0: 0, 1.0: 0, 2.0: 0}
         assert os.sep.join(args.path2unlabelled_data.split(os.sep)[:-1]) == os.sep.join(
             args.path2labelled_data.split(os.sep)[:-1]
         )
@@ -146,8 +150,8 @@ def main(args):
             invalid_sessions.append(session_id)
             continue
         annotation_status = "labelled" if session_info["labelled"] else "unlabelled"
-        for k, v in session_info["seconds_per_status"].items():
-            recording_time[annotation_status][k] += v
+        # for k, v in session_info["seconds_per_status"].items():
+        #     recording_time[annotation_status][k] += v
         # del session_info['minutes_by_status']
         sessions_info[session_id] = session_info
 
@@ -167,17 +171,17 @@ def main(args):
             res,
             file,
         )
-    if args.verbose == 1:
-        for k, v in recording_time.items():
-            print(f"{k} recordings:\t")
-            for status, seconds in v.items():
-                hours = seconds // 3600
-                minutes = (seconds % 3600) // 60
-                remaining_seconds = seconds % 60
-                print(
-                    f"{hours} hours, {minutes} minutes, and {remaining_seconds} "
-                    f"seconds of recording as {SLEEP_DICT[status]}"
-                )
+    # if args.verbose == 1:
+    #     for k, v in recording_time.items():
+    #         print(f"{k} recordings:\t")
+    #         for status, seconds in v.items():
+    #             hours = seconds // 3600
+    #             minutes = (seconds % 3600) // 60
+    #             remaining_seconds = seconds % 60
+    #             print(
+    #                 f"{hours} hours, {minutes} minutes, and {remaining_seconds} "
+    #                 f"seconds of recording as {SLEEP_DICT[status]}"
+    #             )
 
     print(f"Saved processed data to {args.output_dir}")
 
