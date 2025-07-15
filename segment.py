@@ -261,52 +261,89 @@ def segmentation(
 def process_recording(args, metadata: t.Dict, session_id: str):
     recording_path = os.path.join(args.data_dir, session_id, "channels.h5")
     session_label = h5.get(recording_path, "labels")
-    # wake = 0, sleep = 1, can't tell = 2
-    sleep_wake_mask = h5.get(recording_path, "SLEEP")
-    sleep_wake = {"wake": 0, "sleep": 1}
-    features, sleep_status = {}, []
-    for k, v in sleep_wake.items():
-        mask = np.where(sleep_wake_mask != v, np.nan, 1)
-        # resample mask so that each mask entry maps to a wall-time second
-        mask = np.reshape(
-            mask,
-            newshape=(
-                -1,
-                metadata["sessions_info"][session_id]["sampling_rates"]["SLEEP"],
-            ),
-            order="C",
-        )
-        mask = np.where(np.isnan(np.sum(mask, axis=1)), np.nan, 1)
-        session_data, num_segments = segmentation(
-            args,
-            recording_path=recording_path,
-            channel_names=metadata["sessions_info"][session_id]["channel_names"],
-            channel_freq=metadata["sessions_info"][session_id]["sampling_rates"],
-            unix_t0=metadata["sessions_info"][session_id]["unix_t0"]["HR"],
-            mask=mask,
-        )
-        if num_segments:
-            update_dict(target=features, source=session_data)
-            sleep_status.extend([v] * num_segments)
 
-    if not len(sleep_status):
+    # 1. Determine the recording's total duration to create a master mask.
+    session_info = metadata["sessions_info"][session_id]
+    ref_channel = session_info["channel_names"][3]
+    sampling_rate = session_info["sampling_rates"][ref_channel]
+    num_samples = len(h5.get(recording_path, ref_channel))
+    duration_in_seconds = num_samples // sampling_rate
+
+    # 2. Create a hardcoded mask of all ones. This tells the segmentation
+    #    function to treat every second of the recording as valid data.
+    mask = np.ones(duration_in_seconds, dtype=int)
+
+    # 3. Perform segmentation on the entire recording.
+    features, num_segments = segmentation(
+        args,
+        recording_path=recording_path,
+        channel_names=session_info["channel_names"],
+        channel_freq=session_info["sampling_rates"],
+        unix_t0=session_info["unix_t0"][ref_channel],
+        mask=mask,
+    )
+
+    if not num_segments:
         if args.verbose == 1:
-            print(f"Session {session_id} gave no segments.")
+            print(f"Session {session_id} yielded no segments.")
         return None
+
+    # 4. Hardcode the sleep_status list to be all "wake" (value 0).
+    sleep_status = [0] * num_segments
+
+    # 5. Hardcode the time-in-state dictionary to reflect 100% wake time.
+    wake_sleep_off = {
+        "wake": duration_in_seconds,
+        "sleep": 0,
+        "cant_tell": 0,
+    }
+
+    # wake = 0, sleep = 1, can't tell = 2
+    # sleep_wake_mask = h5.get(recording_path, "SLEEP")
+    # sleep_wake = {"wake": 0, "sleep": 1}
+    # features, sleep_status = {}, []
+    # for k, v in sleep_wake.items():
+    #     mask = np.where(sleep_wake_mask != v, np.nan, 1)
+    #     # resample mask so that each mask entry maps to a wall-time second
+    #     mask = np.reshape(
+    #         mask,
+    #         newshape=(
+    #             -1,
+    #             metadata["sessions_info"][session_id]["sampling_rates"]["SLEEP"],
+    #         ),
+    #         order="C",
+    #     )
+    #     mask = np.where(np.isnan(np.sum(mask, axis=1)), np.nan, 1)
+    #     session_data, num_segments = segmentation(
+    #         args,
+    #         recording_path=recording_path,
+    #         channel_names=metadata["sessions_info"][session_id]["channel_names"],
+    #         channel_freq=metadata["sessions_info"][session_id]["sampling_rates"],
+    #         unix_t0=metadata["sessions_info"][session_id]["unix_t0"]["HR"],
+    #         mask=mask,
+    #     )
+    #     if num_segments:
+    #         update_dict(target=features, source=session_data)
+    #         sleep_status.extend([v] * num_segments)
+
+    # if not len(sleep_status):
+    #     if args.verbose == 1:
+    #         print(f"Session {session_id} gave no segments.")
+    #     return None
 
     session_output_dir = os.path.join(args.output_dir, str(session_id))
     if not os.path.isdir(session_output_dir):
         os.makedirs(session_output_dir)
 
-    wake_sleep_off = {}
-    for k, v in SLEEP_DICT.items():
-        # sleep_wake_mask sampled at 32Hz (ACC sampling frequency)
-        secs_in_status = (
-            len(np.where(sleep_wake_mask == k)[0]) // CHANNELS_FREQ["ACC_x"]
-        )
-        wake_sleep_off[v] = secs_in_status
+    # wake_sleep_off = {}
+    # for k, v in SLEEP_DICT.items():
+    #     # sleep_wake_mask sampled at 32Hz (ACC sampling frequency)
+    #     secs_in_status = (
+    #         len(np.where(sleep_wake_mask == k)[0]) // CHANNELS_FREQ["ACC_x"]
+    #     )
+    #     wake_sleep_off[v] = secs_in_status
 
-    features = {k: np.concatenate(v, axis=0) for k, v in features.items()}
+    # features = {k: np.concatenate(v, axis=0) for k, v in features.items()}
     segments_unix_t0 = features["unix_t0"]
     del features["unix_t0"]
     if args.flirt:

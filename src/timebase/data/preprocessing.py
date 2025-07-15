@@ -261,6 +261,10 @@ def preprocess_dir(args, recording_dir: str, labelled: bool):
                 # Crop the data array to the minimum duration
                 channel_data[channel] = recording[: min_duration * sampling_rates[channel]]
 
+            # We hardcode it to report that 100% of the valid time (`min_duration`)
+            # was spent in the "wake" state (status 0.0).
+            session_info["seconds_per_status"] = {0.0: float(min_duration)}
+        
             return channel_data, session_info, short_section
 
     # print(f"processing {session_id} ")
@@ -327,6 +331,10 @@ def preprocess_dir(args, recording_dir: str, labelled: bool):
         #     t0=unix_t0s["HR"],
         #     session_info=session_info,
         # )
+
+        # We hardcode it to report that 100% of the valid time (`min_duration`)
+        # was spent in the "wake" state (status 0.0).
+        session_info["seconds_per_status"] = {0.0: float(min_duration)}
 
         split_acceleration(channel_data=channel_data, sampling_rates=sampling_rates)
 

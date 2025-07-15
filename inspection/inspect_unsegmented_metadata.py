@@ -1,6 +1,7 @@
 import os
 import pickle
 import pandas as pd
+import json
 
 class Colors:
     """A simple class to add color to terminal output."""
@@ -23,30 +24,39 @@ def _print_key_value(key, value, indent=1):
     print(f"{indent_str}{Colors.CYAN}{key:<20}{Colors.ENDC}{Colors.GREEN}{value}{Colors.ENDC}")
 
 def _print_session_details(session_id, session_info, device_type):
-    """Helper function to neatly print the details of a single session."""
+    """
+    (Improved)
+    A helper function to clearly print all details of a single session's metadata.
+    """
     color = Colors.BLUE if "Empatica" in device_type else Colors.WARNING
     print(f"\n   {color}{'─' * 10} Example: {device_type} Session {'─' * 10}{Colors.ENDC}")
     _print_key_value("Session ID", f"'{session_id}'", indent=2)
 
-    for key, value in session_info.items():
-        if key == "channel_names":
-            _print_key_value("Channels", f"({len(value)} found) {value}", indent=2)
-        elif key == "sampling_rates":
-            _print_key_value("Sampling Rates (Hz)", "", indent=2)
-            for ch, rate in value.items():
-                _print_key_value(f"-> {ch}", rate, indent=3)
-        elif key == "labelled":
-             status_color = Colors.GREEN if value else Colors.WARNING
-             _print_key_value(key.capitalize(), f"{status_color}{value}{Colors.ENDC}", indent=2)
+    # Loop through all key-value pairs in the session_info dictionary
+    for key, value in sorted(session_info.items()):
+        # Keep the original key name, do not convert case
+        key_name = key
+
+        # Format the output for different types of values
+        if isinstance(value, dict):
+            # Use json.dumps to pretty-print dictionaries
+            formatted_value = json.dumps(value, indent=4)
+            print(f"   {Colors.CYAN}{key_name:<20}{Colors.ENDC}\n{Colors.GREEN}{formatted_value}{Colors.ENDC}")
+        elif isinstance(value, list):
+            _print_key_value(key_name, f"List (total {len(value)} items): {value}", indent=2)
+        elif isinstance(value, bool):
+            status_color = Colors.GREEN if value else Colors.WARNING
+            _print_key_value(key_name, f"{status_color}{value}{Colors.ENDC}", indent=2)
         else:
-            if isinstance(value, (str, bool, int, float)):
-                 _print_key_value(key.capitalize(), value, indent=2)
+            # Handle other types like strings, numbers, etc.
+            _print_key_value(key_name, value, indent=2)
+
 
 def print_metadata_info(metadata_path: str):
     """
     Loads and prints a clear, readable summary of the metadata.pkl file.
     """
-    print(f"{Colors.BOLD}Inspecting metadata file at: {metadata_path}{Colors.ENDC}")
+    print(f"{Colors.BOLD}Inspecting metadata file: {metadata_path}{Colors.ENDC}")
     if not os.path.exists(metadata_path):
         print(f"{Colors.FAIL}--- ERROR: File not found. ---{Colors.ENDC}")
         return
@@ -59,21 +69,27 @@ def print_metadata_info(metadata_path: str):
         return
 
     # --- TOP-LEVEL SUMMARY ---
-    _print_section_header("Overall Summary")
+    _print_section_header("OVERALL SUMMARY")
     toplevel_keys = list(metadata.keys())
     sessions_info = metadata.get('sessions_info', {})
     invalid_sessions = metadata.get('invalid_sessions', [])
     
-    # This line was added to show the key count and names
     _print_key_value("Top-Level Keys", f"{len(toplevel_keys)} found: {toplevel_keys}")
     _print_key_value("Processed Sessions", len(sessions_info))
     _print_key_value("Invalid/Skipped", len(invalid_sessions))
 
 
-    # --- SESSIONS INFO ---
+    # --- SESSION INFO ---
     if 'sessions_info' in metadata and sessions_info:
-        _print_section_header("Session Details")
+        _print_section_header("SESSION DETAILS")
         
+        # Explicitly state the type of sessions_info
+        _print_key_value("Data Type", "dict")
+        
+        first_session_info = list(sessions_info.values())[0]
+        session_keys = list(first_session_info.keys())
+        _print_key_value("Keys per session", sorted(session_keys))
+
         emotibit_example = None
         empatica_unlabelled_example = None
         empatica_labelled_example = None
@@ -99,7 +115,7 @@ def print_metadata_info(metadata_path: str):
 
     # --- CLINICAL INFO ---
     if 'clinical_info' in metadata:
-        _print_section_header("Clinical Info")
+        _print_section_header("CLINICAL INFO")
         clinical_df = metadata['clinical_info']
         _print_key_value("Data Type", "pandas.DataFrame")
         _print_key_value("Shape", f"{clinical_df.shape[0]} rows, {clinical_df.shape[1]} columns")
@@ -110,12 +126,13 @@ def print_metadata_info(metadata_path: str):
     
     # --- INVALID SESSIONS ---
     if invalid_sessions:
-        _print_section_header("Invalid Sessions")
+        _print_section_header("INVALID SESSIONS")
         _print_key_value("Count", len(invalid_sessions))
         _print_key_value("Examples", invalid_sessions[:3])
 
     print(f"\n{Colors.BOLD}--- End of Report ---{Colors.ENDC}")
 
 if __name__ == '__main__':
+    # Make sure this path points to your actual metadata file
     path_to_metadata = "data/preprocessed/unsegmented/metadata.pkl"
     print_metadata_info(path_to_metadata)

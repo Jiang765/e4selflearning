@@ -8,8 +8,7 @@ FILE_DIRECTORY = os.path.dirname(os.path.realpath(__file__))
 
 HR_OFFSET = 10  # HR data record 10s after the t0
 # channel names of the csv recorded data 
-# CSV_CHANNELS = ["ACC", "BVP", "EDA", "HR", "TEMP", "IBI"]
-CSV_CHANNELS = ["ACC", "BVP", "EDA", "TEMP"]
+CSV_CHANNELS = ["ACC", "BVP", "EDA", "HR", "TEMP", "IBI"]
 # dictionary of channel:sampling frequency -> key: value pairs
 CHANNELS_FREQ = {
     "BVP": 64,

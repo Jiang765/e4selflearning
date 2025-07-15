@@ -106,6 +106,9 @@ def main(args):
     # recording_time = {
     #     "unlabelled": {0.0: 0, 1.0: 0, 2.0: 0}, # 0=Wake, 1=Sleep, 2=Unknown
     # }
+    emotibit_total_seconds = 0.0
+    non_emotibit_total_seconds = 0.0
+
     if not args.e4selflearning:
         # clinical_info = spreadsheet.read(args)
         clinical_info = get_dummy_clinical_info()
@@ -149,16 +152,23 @@ def main(args):
         if session_info is None:
             invalid_sessions.append(session_id)
             continue
-        annotation_status = "labelled" if session_info["labelled"] else "unlabelled"
+        # annotation_status = "labelled" if session_info["labelled"] else "unlabelled"
         # for k, v in session_info["seconds_per_status"].items():
         #     recording_time[annotation_status][k] += v
         # del session_info['minutes_by_status']
+
+        session_duration = session_info.get("seconds_per_status", {}).get(0.0, 0.0)
+        if "emotibit" in session_id:
+            emotibit_total_seconds += session_duration
+        else:
+            non_emotibit_total_seconds += session_duration
+
         sessions_info[session_id] = session_info
 
     res = {
         "invalid_sessions": invalid_sessions,
         "sessions_info": sessions_info,
-        "sleep_algorithm": args.sleep_algorithm,
+        # "sleep_algorithm": args.sleep_algorithm,
     }
     if not args.e4selflearning:
         numeric_columns = clinical_info.select_dtypes(include=[np.number]).columns
@@ -182,6 +192,26 @@ def main(args):
     #                 f"{hours} hours, {minutes} minutes, and {remaining_seconds} "
     #                 f"seconds of recording as {SLEEP_DICT[status]}"
     #             )
+
+    if args.verbose == 1:
+        print("\n" + "="*50)
+        print("Preprocessing Complete: Statistics")
+        print("="*50)
+        
+        def format_time(total_seconds):
+            hours = int(total_seconds // 3600)
+            minutes = int((total_seconds % 3600) // 60)
+            seconds = int(total_seconds % 60)
+            return f"{hours} hours, {minutes} minutes, and {seconds} seconds"
+
+        print(f"Non-EmotiBit (Empatica) total time: {format_time(non_emotibit_total_seconds)}")
+        print(f"EmotiBit total time: {format_time(emotibit_total_seconds)}")
+        
+        overall_total_seconds = non_emotibit_total_seconds + emotibit_total_seconds
+        print("-" * 50)
+        print(f"Overall total processed time: {format_time(overall_total_seconds)}")
+        print(f"Total invalid or skipped sessions: {len(invalid_sessions)}")
+        print("="*50)
 
     print(f"Saved processed data to {args.output_dir}")
 
