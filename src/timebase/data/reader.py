@@ -76,24 +76,50 @@ def compute_statistics(
                     }
                     for channel in channels
                 }
-                collection_files = {
-                    entry: i
-                    for i, entry in enumerate(data["x_pre_train"])
-                    if any(substring in entry for substring in args.filter_collections)
-                    # target task train is always kept in pre-training
-                    or entry in data["x_train"]
-                }
-                if not len(
-                    set(collection_files.keys()).difference(set(data["x_train"]))
-                ):
-                    raise ValueError("No segments for the selected collection")
+
+                # 1. Get all file paths and their original indices.
+                all_pre_train_paths = data["x_pre_train"]
+                
+                # 2. Filter these paths to get only the ones that match the collection filter.
+                filtered_indices = [
+                    i for i, path in enumerate(all_pre_train_paths)
+                    if any(substring in path for substring in args.filter_collections)
+                ]
+                
+                # 3. Use the filtered indices to get the correct file paths.
+                files_to_process = all_pre_train_paths[filtered_indices]
+
+                if not len(files_to_process):
+                    raise ValueError(f"No segments found for the selected collection(s): {args.filter_collections}")
+
                 utils.stats_in_tranches(
                     args,
-                    files2read=np.array(list(collection_files.keys())),
+                    files2read=files_to_process, # Use the correctly filtered list
                     stats=stats,
                     channels=channels,
                 )
-                stats["pre_train_indeces"] = np.array(list(collection_files.values()))
+                
+                # Store the original indices, not the re-filtered ones.
+                stats["pre_train_indeces"] = np.array(filtered_indices)
+
+                # collection_files = {
+                #     entry: i
+                #     for i, entry in enumerate(data["x_pre_train"])
+                #     if any(substring in entry for substring in args.filter_collections)
+                #     # target task train is always kept in pre-training
+                #     or entry in data["x_train"]
+                # }
+                # if not len(
+                #     set(collection_files.keys()).difference(set(data["x_train"]))
+                # ):
+                #     raise ValueError("No segments for the selected collection")
+                # utils.stats_in_tranches(
+                #     args,
+                #     files2read=np.array(list(collection_files.keys())),
+                #     stats=stats,
+                #     channels=channels,
+                # )
+                # stats["pre_train_indeces"] = np.array(list(collection_files.values()))
                 stats_dict[cache] = stats
                 with open(stats_filename, "wb") as file:
                     pickle.dump(stats_dict, file)
@@ -1082,18 +1108,33 @@ def get_datasets_post_hoc(
 
 
 def get_datasets(args, summary: tensorboard.Summary = None):
+    emotibit = "emotibit" in args.filter_collections[0]
+
     filename = os.path.join(args.dataset, "metadata.pkl")
     if not os.path.exists(filename):
         raise FileNotFoundError(f"Cannot find metadata.pkl in {args.dataset}.")
     with open(filename, "rb") as file:
         data = pickle.load(file)
     args.ds_info = data["ds_info"]
-    args.ds_info["channel_freq"] = CHANNELS_FREQ.copy()
+
+    if emotibit:
+        args.ds_info["channel_freq"] = EMOTIBIT_CHANNELS_FREQ.copy()
+    else:
+        args.ds_info["channel_freq"] = CHANNELS_FREQ.copy()
     if not getattr(args, "include_hr", True):
-        del args.ds_info["channel_freq"]["HR"]
+        if "HR" in args.ds_info["channel_freq"]:
+            del args.ds_info["channel_freq"]["HR"]
+
+    sample_file_path = data["sessions_paths"][0]
+    if emotibit:
+        sample_file_path = None
+        for path in data["sessions_paths"]:
+            if "emotibit" in path:
+                sample_file_path = path
+                break
 
     args.input_shapes = {
-        k: h5.get(data["sessions_paths"][0], k).shape
+        k: h5.get(sample_file_path, k).shape
         for k in args.ds_info["channel_freq"].keys()
     }
     numeric_recording_id = preprocessing.LabelEncoder().fit_transform(

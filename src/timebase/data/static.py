@@ -42,6 +42,11 @@ EMOTIBIT_NOMINAL_SAMPLE_RATES = {
 
 EMOTIBIT_CHANNELS = ["AX", "AY", "AZ", "EA", "PI", "PR", "PG", "T1"]
 
+EMOTIBIT_CHANNELS_FREQ = {
+    channel: EMOTIBIT_NOMINAL_SAMPLE_RATES[channel] 
+    for channel in EMOTIBIT_CHANNELS
+}
+
 # maximum values of each individual symptom in YMRS and HDRS
 ITEM_MAX = {
     "YMRS1": 4,
@@ -279,6 +284,7 @@ COLLECTIONS_DICT = {
     "weee": 10,
     "wesad": 11,
     "wesd": 12,
+    "emotibit": 13,
 }
 
 COLLECTIONS_COLOR_DICT = {

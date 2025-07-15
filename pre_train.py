@@ -511,6 +511,7 @@ if __name__ == "__main__":
             "weee",
             "wesad",
             "wesd",
+            "emotibit"
         ],
         required=False,
         help="Select which collections should be used for SS pre-training",
