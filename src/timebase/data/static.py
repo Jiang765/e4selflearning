@@ -40,7 +40,7 @@ EMOTIBIT_NOMINAL_SAMPLE_RATES = {
     'BI': -1, 'HR': -1, 'SA': -1, 'SR': -1, 
 }
 
-EMOTIBIT_CHANNELS = ["AX", "AY", "AZ", "EA", "PI", "PR", "PG", "T1"]
+EMOTIBIT_CHANNELS = ["AX", "AY", "AZ", "GX", "GY", "GZ", "EA", "PI", "PR", "PG", "T1"]
 
 EMOTIBIT_CHANNELS_FREQ = {
     channel: EMOTIBIT_NOMINAL_SAMPLE_RATES[channel] 

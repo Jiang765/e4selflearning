@@ -28,8 +28,11 @@ def _print_session_details(session_id, session_info, device_type):
     (Improved)
     A helper function to clearly print all details of a single session's metadata.
     """
-    color = Colors.BLUE if "Empatica" in device_type else Colors.WARNING
-    print(f"\n   {color}{'─' * 10} Example: {device_type} Session {'─' * 10}{Colors.ENDC}")
+    color = Colors.BLUE
+    if "Unlabelled" in device_type:
+        color = Colors.WARNING
+    
+    print(f"\n   {color}{'─' * 10} Example: {device_type} {'─' * 10}{Colors.ENDC}")
     _print_key_value("Session ID", f"'{session_id}'", indent=2)
 
     # Loop through all key-value pairs in the session_info dictionary
@@ -83,35 +86,43 @@ def print_metadata_info(metadata_path: str):
     if 'sessions_info' in metadata and sessions_info:
         _print_section_header("SESSION DETAILS")
         
-        # Explicitly state the type of sessions_info
-        _print_key_value("Data Type", "dict")
-        
         first_session_info = list(sessions_info.values())[0]
         session_keys = list(first_session_info.keys())
         _print_key_value("Keys per session", sorted(session_keys))
 
-        emotibit_example = None
-        empatica_unlabelled_example = None
-        empatica_labelled_example = None
+        # --- NEW LOGIC FOR FINDING EXAMPLES ---
+        labelled_example = None
+        unlabelled_emotibit_example = None
+        unlabelled_e4_example = None
 
         for session_id, s_info in sessions_info.items():
-            if "emotibit" in session_id:
-                if not emotibit_example:
-                    emotibit_example = (session_id, s_info)
-            else:
-                if s_info.get('labelled') is True and not empatica_labelled_example:
-                    empatica_labelled_example = (session_id, s_info)
-                elif s_info.get('labelled') is False and not empatica_unlabelled_example:
-                    empatica_unlabelled_example = (session_id, s_info)
-            if emotibit_example and empatica_unlabelled_example and empatica_labelled_example:
+            is_labelled = s_info.get('labelled', False)
+            # A simple check for the device type based on the path
+            is_emotibit = "emotibit" in session_id
+
+            if is_labelled and not labelled_example:
+                labelled_example = (session_id, s_info)
+            
+            elif not is_labelled and is_emotibit and not unlabelled_emotibit_example:
+                unlabelled_emotibit_example = (session_id, s_info)
+
+            elif not is_labelled and not is_emotibit and not unlabelled_e4_example:
+                unlabelled_e4_example = (session_id, s_info)
+
+            # Stop when we have found all three types
+            if labelled_example and unlabelled_emotibit_example and unlabelled_e4_example:
                 break
         
-        if empatica_unlabelled_example:
-            _print_session_details(empatica_unlabelled_example[0], empatica_unlabelled_example[1], "Empatica (E4) - Unlabelled")
-        if empatica_labelled_example:
-            _print_session_details(empatica_labelled_example[0], empatica_labelled_example[1], "Empatica (E4) - Labelled")
-        if emotibit_example:
-            _print_session_details(emotibit_example[0], emotibit_example[1], "EmotiBit")
+        # --- NEW PRINTING LOGIC ---
+        if labelled_example:
+            # Generic name for the labelled session as requested
+            _print_session_details(labelled_example[0], labelled_example[1], "Labelled Session")
+        
+        if unlabelled_emotibit_example:
+            _print_session_details(unlabelled_emotibit_example[0], unlabelled_emotibit_example[1], "Unlabelled EmotiBit Session")
+        
+        if unlabelled_e4_example:
+            _print_session_details(unlabelled_e4_example[0], unlabelled_e4_example[1], "Unlabelled Empatica E4 Session")
 
     # --- CLINICAL INFO ---
     if 'clinical_info' in metadata:
