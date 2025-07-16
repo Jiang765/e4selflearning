@@ -216,8 +216,9 @@ def preprocess_dir(args, recording_dir: str, labelled: bool):
       features: np.ndarray, preprocessed channels in SAVE_CHANNELS format
     """
     is_emotibit = "emotibit" in recording_dir
+    is_barcelona = "barcelona" in recording_dir
 
-    if is_emotibit:
+    if is_emotibit or is_barcelona:
         # New logic for EmotiBit
         durations, channel_data, sampling_rates, unix_t0s = [], {}, {}, {}
 
@@ -503,45 +504,7 @@ def recast_collection(args, collection: str, path: str):
     root_dir = os.path.join(args.path2unlabelled_data, path)
 
     if collection == "emotibit":
-        # tqdm.write(f">>> Running recast for EmotiBit collection...")
-
-        # Automatically create a source-to-target file mapping based on the sample rate dictionary.
-        # Ignore signals with a sample rate of -1 (e.g., BI, HR, SA, SR).
-        source_to_target_map = {
-            tag: f"{tag}.csv"
-            for tag, rate in EMOTIBIT_NOMINAL_SAMPLE_RATES.items()
-            if rate != -1
-        }
-
-        for dirpath, dirnames, _ in os.walk(root_dir):
-            # EmotiBit data is typically in a specific subfolder.
-            subfolder_name = "separated by signal with EmotiBitDataParserApp"
-            if subfolder_name in dirnames:
-                
-                session_dir = dirpath
-                source_data_dir = os.path.join(session_dir, subfolder_name)
-                
-                relative_path = os.path.relpath(session_dir, root_dir)
-                output_dir_session = os.path.join(output_dir_collection, relative_path)
-                os.makedirs(output_dir_session, exist_ok=True)
-                dirs.append(output_dir_session)
-                
-                # tqdm.write(f"Processing session: {os.path.basename(session_dir)}")
-
-                # The file prefix is based on the session directory name.
-                prefix = os.path.basename(session_dir)
-
-                # Iterate through the dynamically generated map to process all matching files.
-                for source_tag, target_filename in source_to_target_map.items():
-                    source_filename = f"{prefix}_{source_tag}.csv"
-                    input_path = os.path.join(source_data_dir, source_filename)
-
-                    if os.path.exists(input_path):
-                        output_path = os.path.join(output_dir_session, target_filename)
-                        # Call the reformatting function.
-                        reformat_csv_emotibit(input_path, output_path)
-
-        # tqdm.write(f">>> Complete recast for EmotiBit collection")
+        dirs = recast_collection_emotibit(root_dir, output_dir_collection)
         return list(set(dirs))
 
     files2dismiss = []
@@ -626,6 +589,49 @@ def recast_unlabelled_data(args):
             dirs_collector.extend(dirs)
 
     return dirs_collector
+
+
+def recast_collection_emotibit(root_dir: str, output_dir_collection: str):
+    dirs = []
+    # Automatically create a source-to-target file mapping based on the sample rate dictionary.
+    # Ignore signals with a sample rate of -1 (e.g., BI, HR, SA, SR).
+    source_to_target_map = {
+        tag: f"{tag}.csv"
+        for tag, rate in EMOTIBIT_NOMINAL_SAMPLE_RATES.items()
+        if rate != -1
+    }
+
+    for dirpath, dirnames, _ in os.walk(root_dir):
+        # EmotiBit data is typically in a specific subfolder.
+        subfolder_name = "separated by signal with EmotiBitDataParserApp"
+        if subfolder_name in dirnames:
+            
+            session_dir = dirpath
+            source_data_dir = os.path.join(session_dir, subfolder_name)
+            
+            relative_path = os.path.relpath(session_dir, root_dir)
+            output_dir_session = os.path.join(output_dir_collection, relative_path)
+            os.makedirs(output_dir_session, exist_ok=True)
+            dirs.append(output_dir_session)
+            
+            # The file prefix is based on the session directory name.
+            # prefix = os.path.basename(session_dir)
+            for item in os.listdir(session_dir):
+                if item.endswith('.csv'):
+                    prefix = os.path.splitext(item)[0]
+                    break # Found the prefix, no need to look further
+
+            # Iterate through the dynamically generated map to process all matching files.
+            for source_tag, target_filename in source_to_target_map.items():
+                source_filename = f"{prefix}_{source_tag}.csv"
+                input_path = os.path.join(source_data_dir, source_filename)
+
+                if os.path.exists(input_path):
+                    output_path = os.path.join(output_dir_session, target_filename)
+                    # Call the reformatting function.
+                    reformat_csv_emotibit(input_path, output_path)
+    
+    return dirs
 
 
 def reformat_csv_emotibit(filename: str, output_file: str):

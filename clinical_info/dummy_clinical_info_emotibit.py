@@ -16,11 +16,11 @@ def get_dummy_clinical_info_emotibit():
     base_path = "data/raw_data/barcelona"
     
     # 7 Case Subjects
-    case_subject_ids = [f"E{i:02d}" for i in range(1, 8)] # E01 to E07
+    case_subject_ids = [f"{i:02d}" for i in range(1, 8)] # 01 to 07
     case_session_folders = [f"1-{i}" for i in range(1, 8)] # 1-1 to 1-7
 
     # 7 Control Subjects
-    control_subject_ids = [f"E{i:02d}" for i in range(8, 15)] # E08 to E14
+    control_subject_ids = [f"{i:02d}" for i in range(8, 15)] # 08 to 14
     control_session_folders = [f"2-{i}" for i in range(8, 15)] # 2-8 to 2-14
 
     # --- Create data for the 7 "Case" subjects ---

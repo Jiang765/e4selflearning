@@ -1109,9 +1109,11 @@ def get_datasets_post_hoc(
 
 def get_datasets(args, summary: tensorboard.Summary = None):
     filter_collections = getattr(args, "filter_collections", [])
-    emotibit = False
+    is_emotibit = False
     if filter_collections: 
-        emotibit = "emotibit" in filter_collections
+        is_emotibit = "emotibit" in filter_collections
+    if args.task_mode in (1, 2, 3):
+        is_emotibit = True
 
     filename = os.path.join(args.dataset, "metadata.pkl")
     if not os.path.exists(filename):
@@ -1120,7 +1122,7 @@ def get_datasets(args, summary: tensorboard.Summary = None):
         data = pickle.load(file)
     args.ds_info = data["ds_info"]
 
-    if emotibit:
+    if is_emotibit:
         args.ds_info["channel_freq"] = EMOTIBIT_CHANNELS_FREQ.copy()
     else:
         args.ds_info["channel_freq"] = CHANNELS_FREQ.copy()
@@ -1129,7 +1131,7 @@ def get_datasets(args, summary: tensorboard.Summary = None):
             del args.ds_info["channel_freq"]["HR"]
 
     sample_file_path = data["sessions_paths"][0]
-    if emotibit:
+    if is_emotibit:
         sample_file_path = None
         for path in data["sessions_paths"]:
             if "emotibit" in path:

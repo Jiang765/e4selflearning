@@ -22,7 +22,9 @@ def get_session_label(clinical_info: pd.DataFrame, session_id: str):
     else:
         values = session.values[0]
         values[LABEL_COLS.index("Session_Code")] = float(
-            os.path.basename(values[LABEL_COLS.index("Session_Code")]).split("_")[0][1:]
+            # os.path.basename(values[LABEL_COLS.index("Session_Code")]).split("_")[0][1:]
+            # emotibit
+            os.path.basename(values[LABEL_COLS.index("Session_Code")])[2:]
         )
         return values.astype(np.float32)
 
@@ -107,12 +109,12 @@ def main(args):
     # recording_time = {
     #     "unlabelled": {0.0: 0, 1.0: 0, 2.0: 0}, # 0=Wake, 1=Sleep, 2=Unknown
     # }
-    emotibit_total_seconds = 0.0
-    non_emotibit_total_seconds = 0.0
-
+    total_recording_seconds = 0.0
+    
     if not args.e4selflearning:
         # clinical_info = spreadsheet.read(args)
         # clinical_info = get_dummy_clinical_info()
+        # emotibit
         clinical_info = get_dummy_clinical_info_emotibit()
         args.session_codes = list(clinical_info["Session_Code"])
         # Use a context manager to suppress warnings only for this block
@@ -122,6 +124,16 @@ def main(args):
             clinical_info.replace({"time": DICT_TIME}, inplace=True)
         for session in args.session_codes:
             all_sessions[session] = True
+
+        # Recast labelled data for emotibit
+        labelled_emotibit_source = "data/raw_data/emotibit_labelled/"
+        labelled_emotibit_recast_dest = "data/raw_data/barcelona/"
+        os.makedirs(labelled_emotibit_recast_dest, exist_ok=True) 
+        preprocessing.recast_collection_emotibit(
+            root_dir=labelled_emotibit_source, 
+            output_dir_collection=labelled_emotibit_recast_dest
+        )
+
         # recording_time["labelled"] = {0.0: 0, 1.0: 0, 2.0: 0}
         assert os.sep.join(args.path2unlabelled_data.split(os.sep)[:-1]) == os.sep.join(
             args.path2labelled_data.split(os.sep)[:-1]
@@ -159,11 +171,7 @@ def main(args):
         #     recording_time[annotation_status][k] += v
         # del session_info['minutes_by_status']
 
-        session_duration = session_info.get("seconds_per_status", {}).get(0.0, 0.0)
-        if "emotibit" in session_id:
-            emotibit_total_seconds += session_duration
-        else:
-            non_emotibit_total_seconds += session_duration
+        total_recording_seconds += session_info.get("seconds_per_status", {}).get(0.0, 0.0)
 
         sessions_info[session_id] = session_info
 
@@ -206,12 +214,7 @@ def main(args):
             seconds = int(total_seconds % 60)
             return f"{hours} hours, {minutes} minutes, and {seconds} seconds"
 
-        print(f"Non-EmotiBit (Empatica) total time: {format_time(non_emotibit_total_seconds)}")
-        print(f"EmotiBit total time: {format_time(emotibit_total_seconds)}")
-        
-        overall_total_seconds = non_emotibit_total_seconds + emotibit_total_seconds
-        print("-" * 50)
-        print(f"Overall total processed time: {format_time(overall_total_seconds)}")
+        print(f"Overall total processed time: {format_time(total_recording_seconds)}")
         print(f"Total invalid or skipped sessions: {len(invalid_sessions)}")
         print("="*50)
 

@@ -165,7 +165,8 @@ class ClassificationDataset(Dataset):
 
     @staticmethod
     def session_id(filename: str):
-        return int(os.path.basename(os.path.dirname(os.path.dirname(filename)))[1:])
+        return os.path.basename(os.path.dirname(filename))
+        # return int(os.path.basename(os.path.dirname(os.path.dirname(filename)))[1:])
         # return int(os.path.basename(os.path.dirname(filename)))
 
     def __getitem__(self, idx: t.Union[int, torch.Tensor]) -> t.Dict[str, t.Any]:
