@@ -6,7 +6,8 @@ from shutil import rmtree
 import pandas as pd
 from tqdm.contrib import concurrent
 
-from dummy_clinical_info import get_dummy_clinical_info
+from clinical_info.dummy_clinical_info import get_dummy_clinical_info
+from clinical_info.dummy_clinical_info_emotibit import get_dummy_clinical_info_emotibit
 from timebase.data import preprocessing
 from timebase.data.static import *
 from timebase.utils import h5
@@ -111,7 +112,8 @@ def main(args):
 
     if not args.e4selflearning:
         # clinical_info = spreadsheet.read(args)
-        clinical_info = get_dummy_clinical_info()
+        # clinical_info = get_dummy_clinical_info()
+        clinical_info = get_dummy_clinical_info_emotibit()
         args.session_codes = list(clinical_info["Session_Code"])
         # Use a context manager to suppress warnings only for this block
         with warnings.catch_warnings():

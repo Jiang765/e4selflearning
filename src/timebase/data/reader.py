@@ -1108,7 +1108,10 @@ def get_datasets_post_hoc(
 
 
 def get_datasets(args, summary: tensorboard.Summary = None):
-    emotibit = "emotibit" in args.filter_collections[0]
+    filter_collections = getattr(args, "filter_collections", [])
+    emotibit = False
+    if filter_collections: 
+        emotibit = "emotibit" in filter_collections
 
     filename = os.path.join(args.dataset, "metadata.pkl")
     if not os.path.exists(filename):
