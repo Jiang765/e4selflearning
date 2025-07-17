@@ -8,12 +8,12 @@ from types import SimpleNamespace
 
 # Model imports
 from timebase.models.models import Classifier
-from timebase.data.static import CHANNELS_FREQ
+from timebase.data.static import EMOTIBIT_CHANNELS, EMOTIBIT_CHANNELS_FREQ
 
 # --- Config ---
 SUPERVISED_RUN_DIR = "runs/sl_ann_test"
-TARGET_H5_FILE = "data/preprocessed/sl512_ss128_unlabelled/wesad/S2/S2_E4_Data/0.h5"
-CHANNELS_TO_USE = ['ACC_x', 'ACC_y', 'ACC_z', 'BVP', 'EDA', 'TEMP']
+TARGET_H5_FILE = "data/preprocessed/sl512_ss128/data/raw_data/barcelona/1-1/61.h5"
+SEGMENT_LENGTH = 512
 
 # --- Step 1: Load config and input shapes ---
 def load_args(run_dir, h5_file, used_channels):
@@ -21,7 +21,7 @@ def load_args(run_dir, h5_file, used_channels):
     with open(args_path, "r") as f:
         args_dict = yaml.safe_load(f)
     args = SimpleNamespace(**args_dict)
-    args.ds_info = {'channel_freq': CHANNELS_FREQ, 'segment_length': 512}
+    args.ds_info = {'channel_freq': EMOTIBIT_CHANNELS_FREQ, 'segment_length': SEGMENT_LENGTH}
     with h5py.File(h5_file, "r") as f:
         args.input_shapes = {ch: f[ch].shape for ch in f if ch in used_channels}
     return args
@@ -62,11 +62,11 @@ def print_result(logit, prob, pred):
 if __name__ == "__main__":
     try:
         print("--- Script started ---")
-        args = load_args(SUPERVISED_RUN_DIR, TARGET_H5_FILE, CHANNELS_TO_USE)
+        args = load_args(SUPERVISED_RUN_DIR, TARGET_H5_FILE, EMOTIBIT_CHANNELS)
         model = load_model(args, SUPERVISED_RUN_DIR)
         print("✅ Model loaded successfully")
 
-        input_data = load_data(TARGET_H5_FILE, CHANNELS_TO_USE)
+        input_data = load_data(TARGET_H5_FILE, EMOTIBIT_CHANNELS)
         print("✅ Data loaded successfully")
 
         logit, prob, pred = run_inference(model, input_data)

@@ -1,5 +1,3 @@
-# run_inference_v2.py
-
 import os
 import yaml
 import h5py
@@ -8,14 +6,14 @@ from types import SimpleNamespace
 
 # Direct model and function imports
 from timebase.models.models import Classifier
-from timebase.data.static import CHANNELS_FREQ
+from timebase.data.static import EMOTIBIT_CHANNELS, EMOTIBIT_CHANNELS_FREQ
 from train_ann import load_pre_trained_parameters, load
 
 # --- Configurable paths ---
-TARGET_H5_FILE = "data/preprocessed/sl512_ss128_unlabelled/wesad/S2/S2_E4_Data/0.h5"
+TARGET_H5_FILE = "data/preprocessed/sl512_ss128/data/raw_data/barcelona/1-1/61.h5"
 FINETUNE_CKPT_PATH = "runs/masked_prediction_fine_tuning_test/ckpt_classifier/model_state.pt"
 FINETUNE_ARGS_PATH = "runs/masked_prediction_fine_tuning_test/args.yaml"
-USED_CHANNELS = ['ACC_x', 'ACC_y', 'ACC_z', 'BVP', 'EDA', 'TEMP']
+SEGMENT_LENGTH = 512
 
 # --- Step 1: Load args from YAML and merge with pretraining config ---
 def load_args(finetune_args_path, used_channels):
@@ -32,8 +30,8 @@ def load_args(finetune_args_path, used_channels):
                 args_dict = pretrain_args
 
     args = SimpleNamespace(**args_dict)
-    args.ds_info = {'channel_freq': CHANNELS_FREQ, 'segment_length': 512}
-    args.input_shapes = {ch: (L,) for ch, L in CHANNELS_FREQ.items() if ch in used_channels}
+    args.ds_info = {'channel_freq': EMOTIBIT_CHANNELS_FREQ, 'segment_length': SEGMENT_LENGTH}
+    args.input_shapes = {ch: (L,) for ch, L in EMOTIBIT_CHANNELS_FREQ.items() if ch in used_channels}
     args.device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
     return args
 
@@ -76,13 +74,13 @@ def print_inference_result(h5_file, logit, prob, pred):
 if __name__ == "__main__":
     try:
         print("--- Script started ---")
-        args = load_args(FINETUNE_ARGS_PATH, USED_CHANNELS)
+        args = load_args(FINETUNE_ARGS_PATH, EMOTIBIT_CHANNELS)
         print("✅ Args loaded.")
         # Cell 2: Load model
         model = load_model_from_ckpt(args, FINETUNE_CKPT_PATH)
         print("✅ Model loaded.")
         # Cell 3: Load data
-        input_data = load_data_from_h5(TARGET_H5_FILE, USED_CHANNELS)
+        input_data = load_data_from_h5(TARGET_H5_FILE, EMOTIBIT_CHANNELS)
         print("✅ Data loaded.")
         # Cell 4: Inference
         logit, prob, pred = run_inference(model, input_data, args.device)

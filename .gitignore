@@ -145,4 +145,4 @@ dmypy.json
 runs
 wandb/
 .run/
-inference/data_splits
+data_splits
